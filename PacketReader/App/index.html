@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Snort Web Console Pro Live</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2b;
+      --panel2: #0f172a;
+      --line: #23314d;
+      --text: #e5eefb;
+      --muted: #93a5c5;
+      --accent: #67e8f9;
+      --green: #86efac;
+      --red: #fca5a5;
+      --yellow: #fde68a;
+      --blue: #93c5fd;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
+    .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    .sidebar { background: #0a1220; border-right: 1px solid var(--line); padding: 20px; }
+    .brand { font-size: 24px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .nav button {
+      width: 100%; text-align: left; background: transparent; color: var(--text);
+      border: 1px solid transparent; padding: 12px 14px; margin-bottom: 8px; border-radius: 12px; cursor: pointer;
+    }
+    .nav button.active, .nav button:hover { background: var(--panel); border-color: var(--line); }
+    .main { padding: 20px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+      padding: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.22);
+    }
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-12 { grid-column: span 12; }
+    .stat { font-size: 30px; font-weight: 700; margin-top: 8px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    label { display: block; font-size: 14px; color: #c6d2eb; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; background: var(--panel2); border: 1px solid var(--line);
+      color: var(--text); border-radius: 12px; padding: 10px 12px;
+    }
+    textarea { min-height: 260px; font-family: Consolas, monospace; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button.primary, button.secondary, button.danger {
+      border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; cursor: pointer;
+    }
+    button.primary { background: #67e8f9; color: #082f49; }
+    button.secondary { background: #94a3b8; color: #0f172a; }
+    button.danger { background: #f87171; color: #450a0a; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .pill.green { background: #123c25; color: #bbf7d0; }
+    .pill.red { background: #491919; color: #fecaca; }
+    .pill.blue { background: #102a43; color: #bfdbfe; }
+    .sev-high { color: var(--red); font-weight: 700; }
+    .sev-medium { color: var(--yellow); font-weight: 700; }
+    .sev-low { color: var(--green); font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .codeblock {
+      background: #09101d; border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px; overflow: auto; font-family: Consolas, monospace; font-size: 13px; white-space: pre-wrap;
+    }
+    .toast {
+      position: fixed; right: 20px; bottom: 20px; background: var(--panel); border: 1px solid var(--line);
+      padding: 12px 14px; border-radius: 12px; display: none; min-width: 240px; z-index: 99;
+    }
+    .status-stack { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+    .status-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+    .live-dot {
+      width: 10px; height: 10px; border-radius: 50%; background: #64748b; display: inline-block;
+    }
+    .live-dot.active { background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.7); animation: pulse 1.2s infinite; }
+    .live-dot.idle { background: #f59e0b; }
+    .live-dot.dead { background: #ef4444; }
+    .mini { font-size: 12px; color: var(--muted); }
+    .hero-status {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: 14px; background: #0f172a; border: 1px solid var(--line);
+    }
+    .hero-title { font-weight: 700; }
+    .hero-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,.6); }
+      70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+      .span-3,.span-4,.span-6,.span-12 { grid-column: span 12; }
+      .row2,.row3,.row4 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Snort Web Console Pro</div>
+    <div class="sub">Live push + heartbeat</div>
+
+    <div class="status-stack">
+      <div class="status-row">
+        <span id="ws-dot" class="live-dot dead"></span>
+        <span id="ws-status">WS disconnected</span>
+      </div>
+      <div class="status-row">
+        <span id="engine-dot" class="live-dot dead"></span>
+        <span id="engine-status">Engine stopped</span>
+      </div>
+      <div class="mini" id="heartbeat-text">No heartbeat yet</div>
+      <div class="mini" id="activity-text">No activity yet</div>
+      <div class="mini" id="last-alert-text">No alerts yet</div>
+      <div class="mini" id="listen-text">Not listening</div>
+    </div>
+
+    <div class="nav">
+      <button class="active" onclick="showPage('dashboard', this)">Dashboard</button>
+      <button onclick="showPage('run', this)">Run</button>
+      <button onclick="showPage('alerts', this)">Alerts</button>
+      <button onclick="showPage('rules', this)">Rules</button>
+      <button onclick="showPage('logs', this)">Logs</button>
+      <button onclick="showPage('config', this)">Config</button>
+      <button onclick="showPage('pcap', this)">PCAP Replay</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section id="page-dashboard" class="page active">
+      <div class="grid">
+        <div class="card span-12">
+          <div class="hero-status">
+            <div>
+              <div class="hero-title" id="hero-title">Idle</div>
+              <div class="hero-sub" id="hero-sub">Waiting for activity</div>
+            </div>
+            <div class="pill blue" id="heartbeat-counter-pill">Heartbeat #0</div>
+          </div>
+        </div>
+
+        <div class="card span-3"><div class="muted">Snort status</div><div id="status-pill" class="pill red" style="margin-top:10px;">Stopped</div></div>
+        <div class="card span-3"><div class="muted">Process ID</div><div class="stat" id="stat-pid">-</div></div>
+        <div class="card span-3"><div class="muted">Total alerts</div><div class="stat" id="stat-alerts">0</div></div>
+        <div class="card span-3"><div class="muted">Uptime</div><div class="stat" id="stat-uptime" style="font-size:22px;">0s</div></div>
+
+        <div class="card span-4"><div class="muted">High severity</div><div class="stat" id="stat-high">0</div></div>
+        <div class="card span-4"><div class="muted">Medium severity</div><div class="stat" id="stat-medium">0</div></div>
+        <div class="card span-4"><div class="muted">Low severity</div><div class="stat" id="stat-low">0</div></div>
+
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Top triggered rules</h3>
+          <table>
+            <thead><tr><th>SID</th><th>Message</th><th>Hits</th></tr></thead>
+            <tbody id="top-rules-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Top source IPs</h3>
+          <table>
+            <thead><tr><th>Source</th><th>Hits</th></tr></thead>
+            <tbody id="top-sources-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-run" class="page">
+      <div class="grid">
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Live capture</h3>
+          <label>Interface</label>
+          <input id="iface" placeholder="Example: eth0" />
+          <div style="height:12px;"></div>
+
+          <label>BPF filter</label>
+          <input id="bpf_filter" placeholder="Example: tcp or udp or icmp" />
+          <div style="height:12px;"></div>
+
+          <div class="row3">
+            <div>
+              <label>Alert logger</label>
+              <select id="alert_mode">
+                <option value="alert_fast">alert_fast</option>
+                <option value="alert_full">alert_full</option>
+                <option value="alert_json">alert_json</option>
+                <option value="alert_csv">alert_csv</option>
+              </select>
+            </div>
+            <div>
+              <label>Inline mode</label>
+              <select id="inline_mode">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </div>
+            <div>
+              <label>Quiet mode</label>
+              <select id="quiet">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="height:12px;"></div>
+
+          <div class="row2">
+            <div>
+              <label>DAQ</label>
+              <input id="daq" placeholder="Example: afpacket" />
+            </div>
+            <div>
+              <label>DAQ dir</label>
+              <input id="daq_dir" placeholder="Optional path" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" onclick="startLive()">Start live Snort</button>
+            <button class="danger" onclick="stopSnort()">Stop</button>
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <h3 style="margin-top:0;">CLI preview</h3>
+          <div id="preview-command" class="codeblock">Fill the form to preview the command.</div>
+          <div class="actions">
+            <button class="secondary" onclick="previewCommand()">Preview command</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-alerts" class="page">
+      <div class="grid">
+        <div class="card span-12">
+          <h3 style="margin-top:0;">Search alerts</h3>
+          <div class="row4">
+            <div><label>Text</label><input id="filter-text" /></div>
+            <div><label>SID</label><input id="filter-sid" /></div>
+            <div><label>Source IP</label><input id="filter-src" /></div>
+            <div><label>Destination IP</label><input id="filter-dst" /></div>
+          </div>
+          <div class="actions">
+            <button class="primary" onclick="loadAlerts()">Search</button>
+            <button class="secondary" onclick="downloadAlertsCsv()">Export CSV</button>
+            <button class="danger" onclick="clearAlerts()">Clear history</button>
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <h3 style="margin-top:0;">Alert history</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Severity</th>
+                <th>SID</th>
+                <th>Protocol</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="alerts-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-rules" class="page">
+      <div class="grid">
+        <div class="card span-12">
+          <h3 style="margin-top:0;">local.rules</h3>
+          <textarea id="rules_text"></textarea>
+          <div class="actions">
+            <button class="primary" onclick="saveRules()">Save rules</button>
+            <button class="secondary" onclick="loadRules()">Reload from disk</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-logs" class="page">
+      <div class="grid">
+        <div class="card span-12">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+            <h3 style="margin:0;">Snort stdout / stderr</h3>
+            <div class="actions" style="margin-top:0;">
+              <button class="secondary" onclick="loadLogs()">Refresh</button>
+              <button class="secondary" onclick="clearLogs()">Clear captured logs</button>
+            </div>
+          </div>
+          <div id="process-log" class="codeblock" style="margin-top:12px; min-height:260px;"></div>
+        </div>
+
+        <div class="card span-12">
+          <h3 style="margin-top:0;">Alert file preview</h3>
+          <div id="alert-file-preview" class="codeblock" style="min-height:180px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-config" class="page">
+      <div class="grid">
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Backend config</h3>
+          <label>Snort binary</label>
+          <input id="snort_binary" />
+          <div style="height:12px;"></div>
+
+          <label>Rules file path</label>
+          <input id="rules_path" />
+          <div style="height:12px;"></div>
+
+          <label>Alert output dir</label>
+          <input id="output_dir" />
+          <div style="height:12px;"></div>
+
+          <label>Home net</label>
+          <input id="home_net" />
+
+          <div class="actions">
+            <button class="primary" onclick="saveConfig()">Save config</button>
+            <button class="secondary" onclick="loadConfig()">Reload config</button>
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Current config JSON</h3>
+          <div id="config-json" class="codeblock"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-pcap" class="page">
+      <div class="grid">
+        <div class="card span-6">
+          <h3 style="margin-top:0;">Run Snort on PCAP</h3>
+          <label>Select PCAP</label>
+          <input id="pcap_file" type="file" accept=".pcap,.pcapng" />
+          <div style="height:12px;"></div>
+
+          <div class="row2">
+            <div>
+              <label>Alert logger</label>
+              <select id="pcap_alert_mode">
+                <option value="alert_fast">alert_fast</option>
+                <option value="alert_full">alert_full</option>
+                <option value="alert_json">alert_json</option>
+                <option value="alert_csv">alert_csv</option>
+              </select>
+            </div>
+            <div>
+              <label>Quiet mode</label>
+              <select id="pcap_quiet">
+                <option value="false">Off</option>
+                <option value="true">On</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" onclick="runPcap()">Upload & run</button>
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <h3 style="margin-top:0;">What the indicators mean</h3>
+          <div class="codeblock">
+Green pulse: engine is running and heartbeat is fresh
+Yellow dot: alive but idle / older activity
+Red dot: disconnected or stopped
+
+Heartbeat updates every second even when there are no alerts,
+so you can see that it has not frozen.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let ws = null;
+let logBuffer = [];
+let currentAlerts = [];
+let wsReconnectTimer = null;
+let logFlushTimer = null;
+let lastHeartbeatTs = null;
+let lastAlertTs = null;
+let lastActivityTs = null;
+let heartbeatCounter = 0;
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.innerText = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2400);
+}
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(x => x.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+async function getJson(url, opts=null) {
+  const res = await fetch(url, opts || undefined);
+  return await res.json();
+}
+
+function timeAgoFromTs(ts) {
+  if (!ts) return 'never';
+  const diff = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (diff < 2) return 'just now';
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+function setWsConnected(isConnected) {
+  const dot = document.getElementById('ws-dot');
+  const text = document.getElementById('ws-status');
+  if (isConnected) {
+    dot.className = 'live-dot active';
+    text.innerText = 'WS connected';
+  } else {
+    dot.className = 'live-dot dead';
+    text.innerText = 'WS disconnected';
+  }
+}
+
+function updateHeartbeatUi() {
+  document.getElementById('heartbeat-text').innerText =
+    `Last heartbeat: ${timeAgoFromTs(lastHeartbeatTs)}`;
+  document.getElementById('activity-text').innerText =
+    `Last activity: ${timeAgoFromTs(lastActivityTs)}`;
+  document.getElementById('last-alert-text').innerText =
+    `Last alert: ${timeAgoFromTs(lastAlertTs)}`;
+  document.getElementById('heartbeat-counter-pill').innerText =
+    `Heartbeat #${heartbeatCounter}`;
+}
+
+function updateEngineIndicator(running, iface) {
+  const dot = document.getElementById('engine-dot');
+  const text = document.getElementById('engine-status');
+  const listen = document.getElementById('listen-text');
+  const heroTitle = document.getElementById('hero-title');
+  const heroSub = document.getElementById('hero-sub');
+
+  if (running) {
+    const stale = lastHeartbeatTs && ((Date.now() / 1000) - lastHeartbeatTs > 3);
+    dot.className = stale ? 'live-dot idle' : 'live-dot active';
+    text.innerText = stale ? 'Engine running, waiting...' : 'Engine running';
+    listen.innerText = iface ? `Listening on ${iface}` : 'Listening';
+    heroTitle.innerText = iface ? `Scanning on ${iface}` : 'Scanning live traffic';
+    heroSub.innerText = stale ? 'No recent heartbeat from backend' : 'Heartbeat is active';
+  } else {
+    dot.className = 'live-dot dead';
+    text.innerText = 'Engine stopped';
+    listen.innerText = 'Not listening';
+    heroTitle.innerText = 'Idle';
+    heroSub.innerText = 'Waiting for activity';
+  }
+}
+
+function applyStatus(data) {
+  const pill = document.getElementById('status-pill');
+  if (data.running) {
+    pill.className = 'pill green';
+    pill.innerText = 'Running';
+  } else {
+    pill.className = 'pill red';
+    pill.innerText = 'Stopped';
+  }
+
+  document.getElementById('stat-pid').innerText = data.pid || '-';
+  document.getElementById('stat-alerts').innerText = data.alert_count_total || 0;
+  document.getElementById('stat-uptime').innerText = (data.uptime_seconds || 0) + 's';
+  document.getElementById('stat-high').innerText = data.severity_counts?.high || 0;
+  document.getElementById('stat-medium').innerText = data.severity_counts?.medium || 0;
+  document.getElementById('stat-low').innerText = data.severity_counts?.low || 0;
+
+  if (data.last_activity_ts) lastActivityTs = data.last_activity_ts;
+  if (data.last_alert_ts) lastAlertTs = data.last_alert_ts;
+  if (data.last_heartbeat_ts) lastHeartbeatTs = data.last_heartbeat_ts;
+  if (data.heartbeat_counter !== undefined) heartbeatCounter = data.heartbeat_counter;
+
+  updateHeartbeatUi();
+  updateEngineIndicator(data.running, data.iface);
+}
+
+function applyDashboard(data) {
+  const topRules = document.getElementById('top-rules-body');
+  topRules.innerHTML = '';
+  for (const r of data.top_sids || []) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.sid || ''}</td><td>${r.msg || ''}</td><td>${r.hits || 0}</td>`;
+    topRules.appendChild(tr);
+  }
+
+  const topSources = document.getElementById('top-sources-body');
+  topSources.innerHTML = '';
+  for (const r of data.top_sources || []) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.src || ''}</td><td>${r.hits || 0}</td>`;
+    topSources.appendChild(tr);
+  }
+
+  if (data.last_alert && data.last_alert.ts) {
+    lastAlertTs = data.last_alert.ts;
+    updateHeartbeatUi();
+  }
+}
+
+function renderLogLines() {
+  const box = document.getElementById('process-log');
+  box.innerText = logBuffer.join('\n');
+  box.scrollTop = box.scrollHeight;
+}
+
+function scheduleLogFlush() {
+  if (logFlushTimer) return;
+  logFlushTimer = setTimeout(() => {
+    renderLogLines();
+    logFlushTimer = null;
+  }, 120);
+}
+
+function appendLogLine(line) {
+  logBuffer.push(line);
+  if (logBuffer.length > 120) {
+    logBuffer = logBuffer.slice(-120);
+  }
+  scheduleLogFlush();
+}
+
+function renderAlerts(alerts) {
+  const body = document.getElementById('alerts-body');
+  body.innerHTML = '';
+  for (const a of alerts) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${a.timestamp_text || a.timestamp || ''}</td>
+      <td class="sev-${a.severity || 'low'}">${a.severity || ''}</td>
+      <td>${a.sid || ''}</td>
+      <td>${a.protocol || ''}</td>
+      <td>${a.src || ''}</td>
+      <td>${a.dst || ''}</td>
+      <td>${a.msg || a.text || ''}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function pushLiveAlert(alert) {
+  const row = {
+    timestamp_text: alert.timestamp || '',
+    severity: alert.severity || 'low',
+    sid: alert.sid || '',
+    protocol: alert.protocol || '',
+    src: alert.src || '',
+    dst: alert.dst || '',
+    msg: alert.text || ''
+  };
+  currentAlerts.unshift(row);
+  if (currentAlerts.length > 100) {
+    currentAlerts = currentAlerts.slice(0, 100);
+  }
+  renderAlerts(currentAlerts);
+
+  if (alert.ts) {
+    lastAlertTs = alert.ts;
+    updateHeartbeatUi();
+  }
+}
+
+function connectWs() {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+
+  ws.onopen = () => {
+    setWsConnected(true);
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.type === 'status') {
+      applyStatus(msg.status);
+    } else if (msg.type === 'dashboard') {
+      applyDashboard(msg.dashboard);
+    } else if (msg.type === 'log_line') {
+      appendLogLine(msg.line);
+    } else if (msg.type === 'logs_snapshot') {
+      logBuffer = (msg.logs.process_log || '').split('\n').filter(Boolean);
+      renderLogLines();
+      document.getElementById('alert-file-preview').innerText = msg.logs.alert_file_preview || '';
+    } else if (msg.type === 'alerts_snapshot') {
+      currentAlerts = msg.alerts || [];
+      renderAlerts(currentAlerts);
+    } else if (msg.type === 'alert') {
+      pushLiveAlert(msg.alert);
+    } else if (msg.type === 'logs_cleared') {
+      logBuffer = [];
+      renderLogLines();
+    } else if (msg.type === 'heartbeat') {
+      lastHeartbeatTs = msg.heartbeat.ts;
+      heartbeatCounter = msg.heartbeat.heartbeat_counter || heartbeatCounter;
+      if (msg.heartbeat.last_activity_ts) {
+        lastActivityTs = msg.heartbeat.last_activity_ts;
+      }
+      updateHeartbeatUi();
+      updateEngineIndicator(msg.heartbeat.running, msg.heartbeat.iface);
+    }
+  };
+
+  ws.onclose = () => {
+    setWsConnected(false);
+    wsReconnectTimer = setTimeout(connectWs, 1500);
+  };
+
+  ws.onerror = () => {
+    setWsConnected(false);
+  };
+}
+
+async function loadLogs() {
+  const data = await getJson('/api/logs');
+  logBuffer = (data.process_log || '').split('\n').filter(Boolean);
+  renderLogLines();
+  document.getElementById('alert-file-preview').innerText = data.alert_file_preview || '';
+}
+
+async function clearLogs() {
+  const data = await getJson('/api/logs/clear', { method: 'POST' });
+  toast(data.message || 'Cleared');
+}
+
+async function loadRules() {
+  const data = await getJson('/api/rules');
+  document.getElementById('rules_text').value = data.rules_text || '';
+}
+
+async function saveRules() {
+  const payload = { rules_text: document.getElementById('rules_text').value };
+  const data = await getJson('/api/rules', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  toast(data.message || 'Saved');
+}
+
+async function loadConfig() {
+  const data = await getJson('/api/config');
+  document.getElementById('snort_binary').value = data.snort_binary || '';
+  document.getElementById('rules_path').value = data.rules_path || '';
+  document.getElementById('output_dir').value = data.output_dir || '';
+  document.getElementById('home_net').value = data.home_net || '';
+  document.getElementById('config-json').innerText = JSON.stringify(data, null, 2);
+}
+
+async function saveConfig() {
+  const payload = {
+    snort_binary: document.getElementById('snort_binary').value,
+    rules_path: document.getElementById('rules_path').value,
+    output_dir: document.getElementById('output_dir').value,
+    home_net: document.getElementById('home_net').value
+  };
+  const data = await getJson('/api/config', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  toast(data.message || 'Saved');
+  loadConfig();
+}
+
+function buildPreviewPayload() {
+  return {
+    iface: document.getElementById('iface').value,
+    bpf_filter: document.getElementById('bpf_filter').value,
+    alert_mode: document.getElementById('alert_mode').value,
+    inline_mode: document.getElementById('inline_mode').value === 'true',
+    quiet: document.getElementById('quiet').value === 'true',
+    daq: document.getElementById('daq').value,
+    daq_dir: document.getElementById('daq_dir').value
+  };
+}
+
+async function previewCommand() {
+  const data = await getJson('/api/preview/live', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(buildPreviewPayload())
+  });
+  document.getElementById('preview-command').innerText = data.command || '';
+}
+
+async function startLive() {
+  const data = await getJson('/api/run/live', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(buildPreviewPayload())
+  });
+  toast(data.message || 'Started');
+}
+
+async function stopSnort() {
+  const data = await getJson('/api/run/stop', { method:'POST' });
+  toast(data.message || 'Stopped');
+}
+
+async function runPcap() {
+  const f = document.getElementById('pcap_file').files[0];
+  if (!f) {
+    toast('Choose a pcap first');
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('alert_mode', document.getElementById('pcap_alert_mode').value);
+  fd.append('quiet', document.getElementById('pcap_quiet').value);
+
+  const res = await fetch('/api/run/pcap', {
+    method:'POST',
+    body:fd
+  });
+  const data = await res.json();
+  toast(data.message || 'Started');
+}
+
+async function loadAlerts() {
+  const text = encodeURIComponent(document.getElementById('filter-text').value);
+  const sid = encodeURIComponent(document.getElementById('filter-sid').value);
+  const src = encodeURIComponent(document.getElementById('filter-src').value);
+  const dst = encodeURIComponent(document.getElementById('filter-dst').value);
+
+  const data = await getJson(`/api/alerts?limit=100&text=${text}&sid=${sid}&src=${src}&dst=${dst}`);
+  currentAlerts = data.alerts || [];
+  renderAlerts(currentAlerts);
+}
+
+function downloadAlertsCsv() {
+  const text = encodeURIComponent(document.getElementById('filter-text').value);
+  const sid = encodeURIComponent(document.getElementById('filter-sid').value);
+  const src = encodeURIComponent(document.getElementById('filter-src').value);
+  const dst = encodeURIComponent(document.getElementById('filter-dst').value);
+  window.open(`/api/alerts.csv?text=${text}&sid=${sid}&src=${src}&dst=${dst}`, '_blank');
+}
+
+async function clearAlerts() {
+  const data = await getJson('/api/alerts/clear', { method:'POST' });
+  toast(data.message || 'Cleared');
+  currentAlerts = [];
+  renderAlerts(currentAlerts);
+  const dash = await getJson('/api/dashboard');
+  applyDashboard(dash);
+  const status = await getJson('/api/status');
+  applyStatus(status);
+}
+
+setInterval(() => {
+  updateHeartbeatUi();
+}, 1000);
+
+(async function init() {
+  await loadRules();
+  await loadConfig();
+  await loadLogs();
+  await loadAlerts();
+  connectWs();
+})();
+</script>
+</body>
+</html>

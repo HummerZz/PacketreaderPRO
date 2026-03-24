@@ -1,0 +1,9 @@
+services:
+ snort-web:
+   build: .
+   container_name: snort-web
+   network_mode: host
+   privileged: true
+   restart: unless-stopped
+   volumes:
+     - ./data:/app/data
