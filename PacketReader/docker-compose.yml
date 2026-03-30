@@ -6,4 +6,4 @@ services:
    privileged: true
    restart: unless-stopped
    volumes:
-     - ./data:/app/data
+     - ./App/data:/app/App/data
