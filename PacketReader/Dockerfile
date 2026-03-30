@@ -27,4 +27,4 @@ COPY requirements.txt /app/requirements.txt
 RUN pip3 install --break-system-packages -r /app/requirements.txt
 COPY . /app
 EXPOSE 8080
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "App.app:app", "--host", "0.0.0.0", "--port", "8080"]
